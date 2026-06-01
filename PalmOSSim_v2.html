@@ -689,6 +689,12 @@
                     <button class="home-btn" onclick="goHome()">🏠 桌面</button>
                 </h2>
                 <div class="app-body">
+                    <div class="input-group" style="align-items:center; flex-wrap:wrap; gap:6px;">
+                        <input type="text" id="wc-city" placeholder="城市名稱" style="flex:1; min-width:80px;">
+                        <input type="text" id="wc-tz" placeholder="時區 (如 Asia/Tokyo)" style="flex:2; min-width:120px;">
+                        <input type="text" id="wc-flag" placeholder="🏳️" style="width:52px;">
+                        <button class="action-btn" onclick="addWorldCity()">加入</button>
+                    </div>
                     <div class="world-clock-grid" id="world-clock-grid"></div>
                 </div>
             </div>
@@ -777,6 +783,17 @@
 
     let tokenClient;
     let accessToken = null;
+
+    var worldCities = [
+        { name:'台北', tz:'Asia/Taipei', flag:'🇹🇼' },
+        { name:'東京', tz:'Asia/Tokyo', flag:'🇯🇵' },
+        { name:'北京', tz:'Asia/Shanghai', flag:'🇨🇳' },
+        { name:'首爾', tz:'Asia/Seoul', flag:'🇰🇷' },
+        { name:'新加坡', tz:'Asia/Singapore', flag:'🇸🇬' },
+        { name:'倫敦', tz:'Europe/London', flag:'🇬🇧' },
+        { name:'紐約', tz:'America/New_York', flag:'🇺🇸' },
+        { name:'洛杉磯', tz:'America/Los_Angeles', flag:'🇺🇸' },
+    ];
 
     let db = {
         cal:     JSON.parse(localStorage.getItem('palm_cal'))     || [{date: new Date().toISOString().slice(0,10), time:"09:00", text:"歡迎使用 Palm OS 模擬器！"}],
@@ -1110,25 +1127,45 @@
     // ========================
     // 世界時鐘
     // ========================
-    var worldCities = [
-        { name:'台北', tz:'Asia/Taipei', flag:'🇹🇼' },
-        { name:'東京', tz:'Asia/Tokyo', flag:'🇯🇵' },
-        { name:'北京', tz:'Asia/Shanghai', flag:'🇨🇳' },
-        { name:'首爾', tz:'Asia/Seoul', flag:'🇰🇷' },
-        { name:'新加坡', tz:'Asia/Singapore', flag:'🇸🇬' },
-        { name:'倫敦', tz:'Europe/London', flag:'🇬🇧' },
-        { name:'紐約', tz:'America/New_York', flag:'🇺🇸' },
-        { name:'洛杉磯', tz:'America/Los_Angeles', flag:'🇺🇸' },
-    ];
 
+
+    function addWorldCity() {
+        const city = document.getElementById('wc-city').value.trim();
+        const tz = document.getElementById('wc-tz').value.trim();
+        const flag = document.getElementById('wc-flag').value.trim() || '🌐';
+        if (!city || !tz) return;
+        // Validate timezone
+        try { new Date().toLocaleTimeString('zh-TW', { timeZone: tz }); } catch(e) {
+            alert('時區格式不正確，請使用 IANA 格式（如 Asia/Tokyo）');
+            return;
+        }
+        worldCities.push({ name: city, tz: tz, flag: flag, custom: true });
+        document.getElementById('wc-city').value = '';
+        document.getElementById('wc-tz').value = '';
+        document.getElementById('wc-flag').value = '';
+        updateWorldClock();
+    }
+    function removeWorldCity(i) {
+        worldCities.splice(i, 1);
+        updateWorldClock();
+    }
     function updateWorldClock() {
         const grid = document.getElementById('world-clock-grid');
         if (!grid) return;
+        if (!worldCities || worldCities.length === 0) return;
         const now = new Date();
-        grid.innerHTML = worldCities.map(city => {
-            const timeStr = now.toLocaleTimeString('zh-TW', { timeZone: city.tz, hour:'2-digit', minute:'2-digit', hour12: !db.prefs.use24h });
-            const dateStr = now.toLocaleDateString('zh-TW', { timeZone: city.tz, month:'numeric', day:'numeric' });
-            return `<div class="world-clock-card">
+        grid.innerHTML = worldCities.map((city, i) => {
+            let timeStr, dateStr;
+            try {
+                timeStr = now.toLocaleTimeString('zh-TW', { timeZone: city.tz, hour:'2-digit', minute:'2-digit', hour12: !db.prefs.use24h });
+                dateStr = now.toLocaleDateString('zh-TW', { timeZone: city.tz, month:'numeric', day:'numeric', weekday:'short' });
+            } catch(e) {
+                timeStr = '--:--';
+                dateStr = '時區錯誤';
+            }
+            const deleteBtn = city.custom ? `<div onclick="removeWorldCity(${i})" style="position:absolute;top:6px;right:8px;cursor:pointer;color:#aaa;font-size:16px;font-weight:bold;">×</div>` : '';
+            return `<div class="world-clock-card" style="position:relative;">
+                ${deleteBtn}
                 <div class="world-clock-city">${city.flag} ${city.name}</div>
                 <div class="world-clock-time">${timeStr}</div>
                 <div class="world-clock-tz">${dateStr}</div>
