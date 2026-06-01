@@ -1253,14 +1253,56 @@
     }
     async function downloadFromDrive() {
         if (!accessToken) return alert("請先登入");
-        document.getElementById('sync-status').innerText = "下載中...";
+        const statusEl = document.getElementById('sync-status');
+        statusEl.innerText = "下載中...";
+        statusEl.style.color = "#555";
         try {
             const fileId = await findBackupFile();
-            if (!fileId) return alert("找不到雲端備份檔。");
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: 'Bearer ' + accessToken } });
-            const cloudData = await res.json();
-            if (cloudData.cal) { db = { ...db, ...cloudData }; updateAllStorage(); renderAll(); document.getElementById('sync-status').innerText = "還原完成！"; alert("雲端資料已還原。"); }
-        } catch (err) { document.getElementById('sync-status').innerText = "下載失敗。"; }
+            if (!fileId) {
+                statusEl.innerText = "狀態：找不到雲端備份檔，請先執行雲端備份。";
+                statusEl.style.color = "red";
+                return;
+            }
+            const res = await fetch(
+                `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: 'Bearer ' + accessToken,
+                        Accept: 'application/json'
+                    }
+                }
+            );
+            if (!res.ok) {
+                const errText = await res.text();
+                statusEl.innerText = `狀態：下載失敗（HTTP ${res.status}）`;
+                statusEl.style.color = "red";
+                console.error('Drive download error:', errText);
+                return;
+            }
+            const text = await res.text();
+            let cloudData;
+            try { cloudData = JSON.parse(text); } catch(e) {
+                statusEl.innerText = "狀態：備份檔解析失敗，格式不正確。";
+                statusEl.style.color = "red";
+                return;
+            }
+            if (cloudData && cloudData.cal) {
+                db = { ...db, ...cloudData };
+                updateAllStorage();
+                renderAll();
+                statusEl.innerText = "狀態：還原完成！";
+                statusEl.style.color = "green";
+                alert("☁️ 雲端資料已還原。");
+            } else {
+                statusEl.innerText = "狀態：備份檔格式不正確。";
+                statusEl.style.color = "red";
+            }
+        } catch (err) {
+            statusEl.innerText = "狀態：下載失敗，請確認網路連線。";
+            statusEl.style.color = "red";
+            console.error('downloadFromDrive error:', err);
+        }
     }
 
     function renderAll() { renderCal(); renderAddr(); renderTodo(); renderMemo(); renderExpense(); renderAlarms(); updateWorldClock(); }
