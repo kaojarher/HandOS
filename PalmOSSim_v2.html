@@ -1110,7 +1110,7 @@
     // ========================
     // 世界時鐘
     // ========================
-    const worldCities = [
+    var worldCities = [
         { name:'台北', tz:'Asia/Taipei', flag:'🇹🇼' },
         { name:'東京', tz:'Asia/Tokyo', flag:'🇯🇵' },
         { name:'北京', tz:'Asia/Shanghai', flag:'🇨🇳' },
@@ -1266,12 +1266,23 @@
         statusEl.innerText = "下載中...";
         statusEl.style.color = "#555";
         try {
-            const fileId = await findBackupFile();
+            statusEl.innerText = "步驟1：查詢備份檔...";
+            let fileId;
+            try {
+                fileId = await findBackupFile();
+            } catch(findErr) {
+                statusEl.innerText = "偵錯(查詢)：" + (findErr && findErr.message ? findErr.message : String(findErr));
+                statusEl.style.color = "red";
+                statusEl.style.fontSize = "13px";
+                statusEl.style.wordBreak = "break-all";
+                return;
+            }
             if (!fileId) {
                 statusEl.innerText = "狀態：找不到雲端備份檔，請先執行雲端備份。";
                 statusEl.style.color = "red";
                 return;
             }
+            statusEl.innerText = "步驟2：下載資料...";
             const res = await fetch(
                 `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
                 {
@@ -1308,9 +1319,15 @@
                 statusEl.style.color = "red";
             }
         } catch (err) {
-            const msg = err && err.message ? err.message : String(err);
-            statusEl.innerText = "狀態：" + msg;
+            const msg = [
+                err && err.name ? err.name : '',
+                err && err.message ? err.message : '',
+                err ? String(err) : '未知錯誤'
+            ].filter(Boolean).join(' | ');
+            statusEl.innerText = "偵錯：" + msg;
             statusEl.style.color = "red";
+            statusEl.style.fontSize = "13px";
+            statusEl.style.wordBreak = "break-all";
             console.error('downloadFromDrive error:', err);
         }
     }
